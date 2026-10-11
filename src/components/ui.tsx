@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import QRCode from "qrcode";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { inviteLink } from "@/lib/api";
 
 export type IconName =
@@ -9,7 +9,9 @@ export type IconName =
   | "copy"
   | "download"
   | "flash"
+  | "flip"
   | "moon"
+  | "share"
   | "sun"
   | "user";
 
@@ -30,7 +32,19 @@ export function Icon({ name }: { name: IconName }) {
       </>
     ),
     flash: <path d="M13 2 6 13h6l-1 9 7-12h-6l1-8Z" />,
+    flip: (
+      <>
+        <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3" />
+        <path d="M19.5 3.5v4h-4" />
+      </>
+    ),
     moon: <path d="M20 15.4A8 8 0 0 1 8.6 4 8 8 0 1 0 20 15.4Z" />,
+    share: (
+      <>
+        <path d="M12 14V4m0 0 4.2 4.2M12 4 7.8 8.2" />
+        <path d="M5 12v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" />
+      </>
+    ),
     sun: (
       <>
         <circle cx="12" cy="12" r="4" />
@@ -86,6 +100,9 @@ export function TextField({
   type = "text",
   value,
   onChange,
+  autoComplete,
+  autoCapitalize,
+  spellCheck,
 }: {
   label: string;
   placeholder: string;
@@ -93,6 +110,9 @@ export function TextField({
   type?: string;
   value?: string;
   onChange?: (value: string) => void;
+  autoComplete?: string;
+  autoCapitalize?: string;
+  spellCheck?: boolean;
 }) {
   return (
     <label className="field">
@@ -103,21 +123,40 @@ export function TextField({
         autoFocus={autoFocus}
         value={value}
         onChange={(e) => onChange?.(e.target.value)}
+        autoComplete={autoComplete}
+        autoCapitalize={autoCapitalize}
+        spellCheck={spellCheck}
       />
     </label>
   );
 }
 
+export type FlickPose =
+  | "idle"
+  | "hype"
+  | "waiting"
+  | "peek"
+  | "wave"
+  | "cheese"
+  | "finished"
+  | "deflated";
+
 export function Flick({
   pose = "idle",
   size = "large",
 }: {
-  pose?: "idle" | "hype" | "waiting" | "finished" | "deflated";
+  pose?: FlickPose;
   size?: "small" | "medium" | "large";
 }) {
-  const isHype = pose === "hype";
-  const isFinished = pose === "finished";
+  const armsUp = pose === "hype" || pose === "cheese";
   const isDeflated = pose === "deflated";
+  const isFinished = pose === "finished";
+  const isWave = pose === "wave";
+  const isPeek = pose === "peek";
+  const isCheese = pose === "cheese";
+  const bigLens = pose === "hype" || isCheese;
+  const smile = isFinished || isWave;
+
   return (
     <svg
       className={`flick flick--${size} flick--${pose}`}
@@ -141,13 +180,24 @@ export function Flick({
         />
       </g>
       {!isDeflated && (
-        <path
-          d={isHype ? "M29 79 8 52M132 79l20-27" : "M28 89 10 98M132 89l17 9"}
-          fill="none"
-          stroke="var(--ink)"
-          strokeWidth="8"
-          strokeLinecap="round"
-        />
+        <>
+          <path
+            className="flick__arm flick__arm--left"
+            d={armsUp ? "M29 79 8 52" : isPeek ? "M30 84 14 58" : "M28 89 10 98"}
+            fill="none"
+            stroke="var(--ink)"
+            strokeWidth="8"
+            strokeLinecap="round"
+          />
+          <path
+            className="flick__arm flick__arm--right"
+            d={armsUp ? "M132 79l20-27" : isWave ? "M133 84l20-24" : "M132 89l17 9"}
+            fill="none"
+            stroke="var(--ink)"
+            strokeWidth="8"
+            strokeLinecap="round"
+          />
+        </>
       )}
       <path
         d={
@@ -165,16 +215,11 @@ export function Flick({
         stroke="var(--ink)"
         strokeWidth="3"
       />
-      <circle
-        cx="88"
-        cy="88"
-        r={isHype ? "34" : "30"}
-        fill="var(--ink)"
-        stroke="var(--ink)"
-        strokeWidth="3"
-      />
-      <circle cx="88" cy="88" r={isHype ? "24" : "20"} fill="var(--surface)" />
-      <circle cx="94" cy="82" r={isHype ? "11" : "8"} fill="var(--ink)" />
+      <circle cx="88" cy="88" r={bigLens ? "34" : "30"} fill="var(--ink)" />
+      <circle cx="88" cy="88" r={bigLens ? "24" : "20"} fill="var(--surface)" />
+      {!isDeflated && (
+        <circle cx={isPeek ? "97" : "94"} cy="82" r={bigLens ? "11" : "8"} fill="var(--ink)" />
+      )}
       {!isDeflated && (
         <circle
           cx="38"
@@ -202,6 +247,27 @@ export function Flick({
           strokeWidth="2"
         />
       )}
+      {smile && !isFinished && (
+        <path
+          d="M72 117q16 14 32 0"
+          fill="none"
+          stroke="var(--ink)"
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+      )}
+      {isCheese && (
+        <>
+          <path
+            d="M66 111q22 27 44 0q-22 11 -44 0Z"
+            fill="var(--ink)"
+            stroke="var(--ink)"
+            strokeWidth="3"
+            strokeLinejoin="round"
+          />
+          <ellipse cx="88" cy="117" rx="7" ry="5" fill="var(--destructive)" />
+        </>
+      )}
       {isDeflated && (
         <>
           <path d="M61 113h53" stroke="var(--ink)" strokeWidth="5" strokeLinecap="round" />
@@ -218,9 +284,42 @@ export function Flick({
   );
 }
 
+export function Skeleton({
+  w = "100%",
+  h = 16,
+  r = 8,
+}: {
+  w?: string | number;
+  h?: string | number;
+  r?: number;
+}) {
+  return <span className="skeleton" style={{ width: w, height: h, borderRadius: r }} aria-hidden="true" />;
+}
+
+export function EmptyState({
+  flick = "peek",
+  title,
+  hint,
+  children,
+}: {
+  flick?: FlickPose;
+  title: string;
+  hint?: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="empty-state">
+      <Flick pose={flick} size="medium" />
+      <h2>{title}</h2>
+      {hint && <p>{hint}</p>}
+      {children}
+    </div>
+  );
+}
+
 export function Counter({ count }: { count: number }) {
   return (
-    <span className={`counter ${count >= 20 ? "counter--full" : ""}`}>
+    <span className={`counter ${count >= 20 ? "counter--full" : ""}`} aria-live="polite">
       EXP {String(count).padStart(2, "0")}/20
     </span>
   );
@@ -254,19 +353,28 @@ export function Sheet({
   children: ReactNode;
   onDismiss: () => void;
 }) {
+  const ref = useRef<HTMLElement | null>(null);
+  const dismissRef = useRef(onDismiss);
+  dismissRef.current = onDismiss;
+
+  // Mount-only: re-running this steals focus from whatever the user is
+  // typing into, so parents can pass a fresh onDismiss each render.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onDismiss();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && dismissRef.current();
     window.addEventListener("keydown", onKey);
+    ref.current?.focus();
     return () => window.removeEventListener("keydown", onKey);
-  }, [onDismiss]);
+  }, []);
 
   return (
     <div className="sheet-layer" role="presentation" onMouseDown={onDismiss}>
       <section
+        ref={ref}
         className="sheet"
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        tabIndex={-1}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="sheet__grabber" />

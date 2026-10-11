@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
-import { useNavigate, useParams } from "react-router-dom";
 import { joinRoom, loadGuestSession } from "@/lib/guest";
 import { Button, Flick, Icon, TextField } from "@/components/ui";
 
@@ -31,9 +30,11 @@ export default function Join() {
     <main className="screen join-screen">
       <div className="join-top">
         <span className="wordmark">MOMENTO</span>
-        <button className="text-link" onClick={() => navigate("/login")}>
-          Host
-        </button>
+        <div className="join-top__actions">
+          <button className="text-link" onClick={() => navigate("/")}>
+            Host
+          </button>
+        </div>
       </div>
       <div className="join-copy">
         <span className="camera-mark">
@@ -48,6 +49,9 @@ export default function Join() {
           label="Your name"
           placeholder="Name"
           autoFocus
+          autoCapitalize="words"
+          autoComplete="nickname"
+          spellCheck={false}
           value={name}
           onChange={setName}
         />
@@ -58,7 +62,7 @@ export default function Join() {
         <code>20 SHOTS EACH · RETAKES ARE FREE</code>
       </div>
       <div className="join-mascot">
-        <Flick pose="idle" size="medium" />
+        <Flick pose={error ? "deflated" : "wave"} size="medium" />
       </div>
     </main>
   );

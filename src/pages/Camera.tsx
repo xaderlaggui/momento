@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { supabase, SHOTS_PER_ROLL } from "@/lib/supabase";
 import { signedUrl } from "@/lib/api";
+import { describe } from "@/lib/errors";
 import {
   countKept,
   discardPhoto,
@@ -15,6 +16,14 @@ import type { Member, Photo } from "@/lib/types";
 import { Button, Counter, Flick, Icon } from "@/components/ui";
 
 const MAX_EDGE = 2048;
+
+function haptic(pattern: number | number[]): void {
+  try {
+    navigator.vibrate?.(pattern);
+  } catch {
+    /* vibration unsupported */
+  }
+}
 
 function FilmStrip({ photos, urls, keptTotal }: { photos: Photo[]; urls: Record<string, string>; keptTotal: number }) {
   const recent = photos.slice(-3);
@@ -53,6 +62,8 @@ export default function Camera() {
   const [showFlick, setShowFlick] = useState(false);
   const [camError, setCamError] = useState(false);
   const [ready, setReady] = useState(false);
+  const [facing, setFacing] = useState<"user" | "environment">("user");
+  const [firstShot, setFirstShot] = useState(true);
 
   // Init: verify session, load room id, kept count, and any orphan pending shot.
   useEffect(() => {
@@ -83,25 +94,27 @@ export default function Camera() {
           setPending({ id: pendingRow.id, storagePath: pendingRow.storage_path });
         }
       } catch (e) {
-        setError((e as Error).message);
+        setError(describe(e));
       }
     })();
   }, [code, navigate, session]);
 
-  // Camera stream.
+  // Camera stream. A party booth is shot at people, so the front camera leads;
+  // the flip button swaps lenses without leaving the screen.
   useEffect(() => {
     if (!ready) return;
     let live = true;
     (async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 } },
+          video: { facingMode: { ideal: facing }, width: { ideal: 1920 } },
           audio: false,
         });
         if (!live) {
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
+        streamRef.current?.getTracks().forEach((t) => t.stop());
         streamRef.current = stream;
         if (videoRef.current) videoRef.current.srcObject = stream;
       } catch {
@@ -112,7 +125,7 @@ export default function Camera() {
       live = false;
       streamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, [ready]);
+  }, [ready, facing]);
 
   const grabBlob = useCallback((): Promise<Blob> => {
     return new Promise((resolve, reject) => {
@@ -159,11 +172,13 @@ export default function Camera() {
   async function onShutter() {
     if (busy || previewUrl) return;
     setError(null);
+    haptic(12);
     try {
       previewBlobRef.current = await grabBlob();
       setPreviewUrl(URL.createObjectURL(previewBlobRef.current));
+      setFirstShot(false);
     } catch (e) {
-      setError((e as Error).message);
+      setError(describe(e));
     }
   }
 
@@ -178,7 +193,7 @@ export default function Camera() {
     setBusy(true);
     submitPending(code, roomId, member.id, blob)
       .then((p) => setPending(p))
-      .catch((e) => setError((e as Error).message))
+      .catch((e) => setError(describe(e)))
       .finally(() => setBusy(false));
   }, [previewUrl, pending, roomId, member, code]);
 
@@ -204,11 +219,12 @@ export default function Camera() {
       clearPreview();
       setFlash(true);
       setShowFlick(true);
+      haptic([10, 40, 10]);
       setTimeout(() => setFlash(false), 120);
       setTimeout(() => setShowFlick(false), 850);
       if (next >= SHOTS_PER_ROLL) navigate(`/r/${code}/done`, { replace: true });
     } catch (e) {
-      setError((e as Error).message);
+      setError(describe(e));
     } finally {
       setBusy(false);
     }
@@ -282,6 +298,23 @@ export default function Camera() {
         <Counter count={kept} />
       </div>
 
+      {!camError && (
+        <button
+          className="camera-flip"
+          onClick={() => {
+            haptic(8);
+            setFacing((f) => (f === "user" ? "environment" : "user"));
+          }}
+          aria-label={`Switch to ${facing === "user" ? "back" : "front"} camera`}
+        >
+          <Icon name="flip" />
+        </button>
+      )}
+
+      {!camError && !previewUrl && firstShot && (
+        <p className="camera-first-hint">Tap the shutter to start the roll</p>
+      )}
+
       {!camError && !previewUrl && (
         <>
           <div className="bracket bracket--tl" />
@@ -297,7 +330,7 @@ export default function Camera() {
           <button className="shutter" onClick={onShutter} disabled={busy || full} aria-label="Take photo">
             <span />
           </button>
-          <p>HOLD STILL · TAP TO SHOOT</p>
+          <p>{full ? "ROLL FULL · HAND IT ON" : "HOLD STILL · TAP TO SHOOT"}</p>
         </div>
       )}
 

@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Navigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { loadGuestSession, resumeMember, countKept } from "@/lib/guest";
 import { SHOTS_PER_ROLL } from "@/lib/supabase";
-import { Flick } from "@/components/ui";
+import { Button, Flick } from "@/components/ui";
 
 export default function Done() {
   const { code = "" } = useParams();
+  const navigate = useNavigate();
   const [kept, setKept] = useState<number | null>(null);
   const session = loadGuestSession(code);
 
@@ -32,7 +33,12 @@ export default function Done() {
           ? `You kept ${kept} shots. Every keep is safe with the host.`
           : "Your keeps are safe with the host."}
       </p>
-      <Flick pose="finished" size="large" />
+      <Flick pose="cheese" size="large" />
+      <div className="lower-actions">
+        <Button variant="secondary" onClick={() => navigate("/")}>
+          Join another camera
+        </Button>
+      </div>
     </main>
   );
 }

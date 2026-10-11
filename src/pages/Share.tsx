@@ -24,6 +24,20 @@ export default function Share() {
     setTimeout(() => setCopied(false), 1500);
   }
 
+  async function onShare() {
+    if (!room) return;
+    const url = `${window.location.origin}/r/${room.code}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `Momento · ${room.name}`, text: "Join the camera — everyone shoots the same roll.", url });
+        return;
+      } catch {
+        /* dismissed or unsupported → fall back to copy */
+      }
+    }
+    await copyLink();
+  }
+
   if (error) return <p style={{ padding: 24, color: "var(--destructive)" }}>{error}</p>;
   if (!room) return <p className="label p-6">Loading…</p>;
 
@@ -36,11 +50,16 @@ export default function Share() {
         <p>Point any camera here. Nothing to install.</p>
       </div>
       <QRCodeImage code={room.code} name={room.name} />
-      <div className="lower-actions lower-actions--row">
-        <Button variant="secondary" icon="copy" onClick={copyLink}>
-          {copied ? "Copied" : "Copy link"}
+      <div className="lower-actions share-actions">
+        <Button icon="share" onClick={onShare}>
+          Share invite
         </Button>
-        <Button onClick={() => navigate(`/room/${room.id}`)}>Done sharing</Button>
+        <Button variant="secondary" icon="copy" onClick={copyLink}>
+          {copied ? "Link copied" : "Copy link"}
+        </Button>
+        <Button variant="ghost" onClick={() => navigate(`/room/${room.id}`)}>
+          Done sharing
+        </Button>
       </div>
     </main>
   );

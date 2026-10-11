@@ -38,6 +38,7 @@ async function ensureAnonAuth(): Promise<void> {
 
 function mapJoinError(message: string): string {
   if (message.includes("ROOM_CLOSED")) return "This camera is closed. No more shots today.";
+  if (message.includes("ROOM_FULL")) return "This camera is full — the host has capped the headcount.";
   if (message.includes("ROOM_NOT_FOUND")) return "This camera does not exist.";
   if (message.includes("INVALID_NAME")) return "Pick a name between 1 and 40 characters.";
   if (message.includes("TOKEN_MISMATCH")) return "Session mismatch. Reload and join again.";
@@ -75,6 +76,22 @@ export async function resumeMember(roomCode: string): Promise<Member> {
 export async function getRoomId(roomCode: string): Promise<string> {
   const { data, error } = await supabase.rpc("room_id_for_code", { p_code: roomCode.toUpperCase() });
   if (error || !data) throw new Error("This camera does not exist.");
+  return data as string;
+}
+
+/**
+ * Landing-page validation: does this code belong to a real room?
+ *
+ * Runs before the guest is asked for a name, so a typo never costs them a
+ * second step. Uses the anon-granted `room_id_for_code` RPC — the room code is
+ * the invite, so knowing a code resolves is not a leak.
+ */
+export async function checkRoomCode(roomCode: string): Promise<string> {
+  const { data, error } = await supabase.rpc("room_id_for_code", {
+    p_code: roomCode.toUpperCase(),
+  });
+  if (error) throw new Error(error.message);
+  if (!data) throw new Error("No camera with that code. Check with the host.");
   return data as string;
 }
 

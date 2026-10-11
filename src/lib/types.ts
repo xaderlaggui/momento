@@ -8,6 +8,7 @@ export interface Room {
   name: string;
   event_date: string | null;
   status: RoomStatus;
+  max_members: number;
   created_at: string;
 }
 

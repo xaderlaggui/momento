@@ -13,14 +13,18 @@ export function inviteLink(code: string): string {
   return `${window.location.origin}/r/${code}`;
 }
 
-export async function createRoom(name: string, eventDate: string | null): Promise<Room> {
+export async function createRoom(
+  name: string,
+  eventDate: string | null,
+  maxMembers = 10
+): Promise<Room> {
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) throw new Error("Not signed in");
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = randomRoomCode();
     const { data, error } = await supabase
       .from("rooms")
-      .insert({ code, owner_id: userData.user.id, name, event_date: eventDate })
+      .insert({ code, owner_id: userData.user.id, name, event_date: eventDate, max_members: maxMembers })
       .select()
       .single();
     if (data && !error) return data as Room;
@@ -42,6 +46,11 @@ export async function getRoom(id: string): Promise<Room> {
 
 export async function closeRoom(id: string): Promise<void> {
   const { error } = await supabase.rpc("close_room", { p_room_id: id });
+  if (error) throw error;
+}
+
+export async function setRoomMax(id: string, max: number): Promise<void> {
+  const { error } = await supabase.rpc("set_room_max", { p_room_id: id, p_max: max });
   if (error) throw error;
 }
 

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { createRoom, listRooms } from "@/lib/api";
 import type { Room } from "@/lib/types";
-import { Button, Flick, Icon, Sheet, TextField } from "@/components/ui";
+import { Button, EmptyState, Flick, Icon, Sheet, Skeleton, TextField } from "@/components/ui";
 
 async function keptCount(roomId: string): Promise<number> {
   const { count } = await supabase
@@ -21,6 +21,7 @@ export default function Dashboard() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
+  const [maxMembers, setMaxMembers] = useState(10);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,7 +41,7 @@ export default function Dashboard() {
     setBusy(true);
     setError(null);
     try {
-      const room = await createRoom(name.trim(), date || null);
+      const room = await createRoom(name.trim(), date || null, maxMembers);
       setSheetOpen(false);
       navigate(`/room/${room.id}/share`);
     } catch (err) {
@@ -52,7 +53,7 @@ export default function Dashboard() {
 
   async function onSignOut() {
     await supabase.auth.signOut();
-    navigate("/login", { replace: true });
+    navigate("/", { replace: true });
   }
 
   return (
@@ -80,22 +81,28 @@ export default function Dashboard() {
           <h2>Active</h2>
           <span>{rooms?.length ?? 0} cameras</span>
         </div>
-        <div className="inset-list">
-          {rooms === null ? (
-            <div className="room-row">
-              <span className="room-row__copy">
-                <small>Loading…</small>
-              </span>
-            </div>
-          ) : rooms.length === 0 ? (
-            <div className="room-row">
-              <span className="room-row__copy">
-                <strong>No cameras yet</strong>
-                <small>Create your first room below.</small>
-              </span>
-            </div>
-          ) : (
-            rooms.map((room) => (
+        {rooms === null ? (
+          <div className="inset-list" aria-hidden="true">
+            {[0, 1, 2].map((i) => (
+              <div className="room-row" key={i}>
+                <Skeleton w={48} h={48} r={14} />
+                <span className="room-row__copy">
+                  <Skeleton w="62%" h={13} />
+                  <Skeleton w="38%" h={10} />
+                </span>
+                <Skeleton w={34} h={10} />
+              </div>
+            ))}
+          </div>
+        ) : rooms.length === 0 ? (
+          <EmptyState
+            flick="peek"
+            title="No cameras yet"
+            hint="Tap New room below, then share the QR. Everyone shoots into the same roll."
+          />
+        ) : (
+          <div className="inset-list">
+            {rooms.map((room) => (
               <button className="room-row" key={room.id} onClick={() => navigate(`/room/${room.id}`)}>
                 <span className="room-row__icon">
                   <Icon name="flash" />
@@ -112,17 +119,9 @@ export default function Dashboard() {
                   <Icon name="chevron" />
                 </span>
               </button>
-            ))
-          )}
-        </div>
-      </section>
-
-      <section className="flow-note">
-        <span className="flow-note__number">02</span>
-        <div>
-          <strong>Host flow</strong>
-          <p>Create → share in two taps. Photos arrive here live.</p>
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <div className="lower-actions">
@@ -138,6 +137,28 @@ export default function Dashboard() {
           </div>
           <TextField label="Room name" placeholder="Maya & Theo" value={name} onChange={setName} />
           <TextField label="Event date (optional)" type="date" value={date} onChange={setDate} placeholder="" />
+          <div className="field">
+            <span>Max members</span>
+            <div className="member-stepper">
+              <button
+                className="icon-button"
+                aria-label="Fewer members"
+                onClick={() => setMaxMembers((v) => Math.max(1, v - 1))}
+                disabled={maxMembers <= 1}
+              >
+                <span className="member-stepper__sign">−</span>
+              </button>
+              <span className="counter">{maxMembers}</span>
+              <button
+                className="icon-button"
+                aria-label="More members"
+                onClick={() => setMaxMembers((v) => Math.min(10, v + 1))}
+                disabled={maxMembers >= 10}
+              >
+                <span className="member-stepper__sign">+</span>
+              </button>
+            </div>
+          </div>
           {error && <p style={{ color: "var(--destructive)", fontSize: 13 }}>{error}</p>}
           <Button onClick={onCreate} disabled={busy || !name.trim()}>
             {busy ? "Creating…" : "Create room"}

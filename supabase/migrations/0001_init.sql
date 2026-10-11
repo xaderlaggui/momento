@@ -8,6 +8,7 @@ create table if not exists public.rooms (
   name text not null check (char_length(name) between 1 and 60),
   event_date date,
   status text not null default 'open' check (status in ('open', 'closed')),
+  max_members int not null default 10 check (max_members between 1 and 10),
   created_at timestamptz not null default now()
 );
 
@@ -53,6 +54,12 @@ create policy "members owner read" on public.members
     exists (select 1 from public.rooms r where r.id = members.room_id and r.owner_id = auth.uid ())
   );
 
+-- Members of a room can read the room row (needed by storage policies + UI).
+create policy "rooms member read" on public.rooms
+  for select using (
+    exists (select 1 from public.members m where m.room_id = rooms.id and m.auth_user_id = auth.uid ())
+  );
+
 -- Guests read own photos; owners read all room photos.
 create policy "photos own read" on public.photos
   for select using (
@@ -75,6 +82,25 @@ as $$
   select id from public.rooms where code = upper(p_code)
 $$;
 
+create or replace function public.set_room_max(p_room_id uuid, p_max int)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_count int;
+begin
+  if p_max is null or p_max < 1 or p_max > 10 then
+    raise exception 'MAX_RANGE' using errcode = '22001';
+  end if;
+  if not public.is_room_owner(p_room_id) then
+    raise exception 'NOT_OWNER' using errcode = '40300';
+  end if;
+  update public.rooms set max_members = p_max where id = p_room_id;
+end
+$$;
+
 create or replace function public.join_room(p_code text, p_display_name text, p_token text default null)
 returns public.members
 language plpgsql
@@ -84,6 +110,7 @@ as $$
 declare
   v_room public.rooms;
   v_member public.members;
+  v_count integer;
   v_uid uuid := auth.uid ();
 begin
   if v_uid is null then
@@ -108,6 +135,11 @@ begin
      or char_length(btrim(p_display_name)) = 0
      or char_length(btrim(p_display_name)) > 40 then
     raise exception 'INVALID_NAME' using errcode = '22001';
+  end if;
+  -- Enforce member cap (only blocks new joins; resumes pass above).
+  select count(*) into v_count from public.members where room_id = v_room.id;
+  if v_count >= v_room.max_members then
+    raise exception 'ROOM_FULL' using errcode = '40900';
   end if;
   insert into public.members (room_id, auth_user_id, display_name)
     values (v_room.id, v_uid, btrim(p_display_name))
@@ -245,6 +277,8 @@ grant execute on function public.photo_submit (text, text) to authenticated, ano
 grant execute on function public.photo_keep (uuid) to authenticated, anon;
 grant execute on function public.photo_discard (uuid) to authenticated, anon;
 grant execute on function public.close_room (uuid) to authenticated;
+revoke all on function public.set_room_max (uuid, int) from public;
+grant execute on function public.set_room_max (uuid, int) to authenticated;
 
 -- Storage: private bucket, path = {room_id}/{member_id}/{file}.jpg
 insert into storage.buckets (id, name, public)
