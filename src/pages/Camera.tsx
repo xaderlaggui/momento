@@ -140,7 +140,14 @@ export default function Camera() {
       canvas.height = Math.round(vh * scale);
       const ctx = canvas.getContext("2d");
       if (!ctx) return reject(new Error("Canvas unavailable"));
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      if (facing === "user") {
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+      } else {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      }
       canvas.toBlob(
         (b) => (b ? resolve(b) : reject(new Error("Capture failed"))),
         "image/jpeg",
@@ -182,36 +189,33 @@ export default function Camera() {
     }
   }
 
-  // Upload a pending row for the shot, before the keep/retake decision.
-  useEffect(() => {
-    if (!previewUrl || pending || !roomId || !member) return;
-    if (!previewUrl.startsWith("blob:")) return; // surfacing stored pending: already uploaded
-    if (uploadedUrlRef.current === previewUrl) return;
-    uploadedUrlRef.current = previewUrl;
+  // Do not auto-upload on capture: upload only when user taps "Keep photo".
+
+  async function onKeep() {
+    if (!member || !roomId) return;
     const blob = previewBlobRef.current;
     if (!blob) return;
     setBusy(true);
-    submitPending(code, roomId, member.id, blob)
-      .then((p) => setPending(p))
-      .catch((e) => setError(describe(e)))
-      .finally(() => setBusy(false));
-  }, [previewUrl, pending, roomId, member, code]);
-
-  async function onKeep() {
-    if (!pending || !member) return;
-    setBusy(true);
     setError(null);
     try {
-      await keepPhoto(pending.id);
+      let pid = pending?.id;
+      let pPath = pending?.storagePath;
+      if (!pid) {
+        const p = await submitPending(code, roomId, member.id, blob);
+        pid = p.id;
+        pPath = p.storagePath;
+        setPending(p);
+      }
+      await keepPhoto(pid);
       const next = kept + 1;
       setKept(next);
       setStrip((s) => [
         ...s,
         {
-          id: pending.id,
+          id: pid,
           room_id: member.room_id,
           member_id: member.id,
-          storage_path: pending.storagePath,
+          storage_path: pPath,
           status: "kept",
           created_at: new Date().toISOString(),
         },
@@ -231,7 +235,6 @@ export default function Camera() {
   }
 
   async function onRetake() {
-    if (pending) await discardPhoto(pending.id, pending.storagePath).catch(() => undefined);
     clearPreview();
   }
 
@@ -287,7 +290,14 @@ export default function Camera() {
           </label>
         </div>
       ) : (
-        <video ref={videoRef} className="viewfinder-image" autoPlay playsInline muted />
+        <video
+          ref={videoRef}
+          className="viewfinder-image"
+          autoPlay
+          playsInline
+          muted
+          style={facing === "user" ? { transform: "scaleX(-1)" } : undefined}
+        />
       )}
 
       {!camError && <div className="camera-shade" />}
