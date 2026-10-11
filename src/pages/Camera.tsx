@@ -5,7 +5,6 @@ import { signedUrl } from "@/lib/api";
 import { describe } from "@/lib/errors";
 import {
   countKept,
-  discardPhoto,
   getRoomId,
   keepPhoto,
   loadGuestSession,
@@ -218,7 +217,7 @@ export default function Camera() {
           storage_path: pPath,
           status: "kept",
           created_at: new Date().toISOString(),
-        },
+        } as Photo,
       ]);
       clearPreview();
       setFlash(true);
