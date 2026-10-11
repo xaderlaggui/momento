@@ -5,6 +5,7 @@ import { signedUrl } from "@/lib/api";
 import { describe } from "@/lib/errors";
 import {
   countKept,
+  discardPhoto,
   getRoomId,
   keepPhoto,
   loadGuestSession,
@@ -193,13 +194,14 @@ export default function Camera() {
   async function onKeep() {
     if (!member || !roomId) return;
     const blob = previewBlobRef.current;
-    if (!blob) return;
+    if (!blob && !pending) return;
     setBusy(true);
     setError(null);
     try {
       let pid = pending?.id;
       let pPath = pending?.storagePath;
       if (!pid) {
+        if (!blob) return;
         const p = await submitPending(code, roomId, member.id, blob);
         pid = p.id;
         pPath = p.storagePath;
@@ -234,6 +236,7 @@ export default function Camera() {
   }
 
   async function onRetake() {
+    if (pending) await discardPhoto(pending.id, pending.storagePath).catch(() => undefined);
     clearPreview();
   }
 
@@ -246,13 +249,13 @@ export default function Camera() {
       <main className="screen camera-screen preview-screen">
         <img className="viewfinder-image" src={previewUrl} alt="Photo preview" />
         <div className="preview-vignette" />
-        <div className="preview-label">{busy ? "SAVING…" : pending ? "LOOKING GOOD" : "UPLOADING…"}</div>
+        <div className="preview-label">{busy ? "SAVING…" : "LOOKS GOOD"}</div>
         {error && <p style={{ position: "absolute", top: "20%", left: 0, right: 0, textAlign: "center", color: "#ff715b", fontSize: 13 }}>{error}</p>}
         <div className="preview-actions">
           <Button variant="secondary" onClick={onRetake} disabled={busy}>
             Retake
           </Button>
-          <Button onClick={onKeep} disabled={busy || !pending}>
+          <Button onClick={onKeep} disabled={busy}>
             {busy ? "Saving…" : "Keep photo"}
           </Button>
         </div>
