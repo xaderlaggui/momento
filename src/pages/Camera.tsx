@@ -189,7 +189,7 @@ export default function Camera() {
         0.85
       );
     });
-  }, []);
+  }, [facing]);
 
   // Resolve signed URLs for the film strip.
   useEffect(() => {
@@ -363,7 +363,12 @@ export default function Camera() {
         </div>
       ) : (
         <video
-          ref={videoRef}
+          ref={(el) => {
+            videoRef.current = el;
+            // The preview screen unmounts this element; on Retake/Keep it
+            // remounts with no srcObject, so reattach the still-live stream.
+            if (el && streamRef.current) el.srcObject = streamRef.current;
+          }}
           className="viewfinder-image"
           autoPlay
           playsInline
