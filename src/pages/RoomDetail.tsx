@@ -13,7 +13,7 @@ import {
   signedUrl,
 } from "@/lib/api";
 import type { Member, Photo, Room } from "@/lib/types";
-import { BackBar, Button, EmptyState, Flick, Icon, Sheet, Skeleton, TextField } from "@/components/ui";
+import { BackBar, Button, EmptyState, ExposureLadder, Flick, Icon, Sheet, Skeleton, TextField } from "@/components/ui";
 import Lightbox from "@/components/Lightbox";
 import Toast from "@/components/Toast";
 
@@ -181,12 +181,12 @@ export default function RoomDetail() {
     }
   }
 
-  if (error && !room) return <p style={{ padding: 24, color: "var(--destructive)" }}>{error}</p>;
+  if (error && !room) return <p className="page-error">{error}</p>;
   if (!room)
     return (
       <main className="screen standard-screen room-screen">
         <BackBar label="Cameras" onBack={() => navigate("/dashboard")} />
-        <header className="room-title">
+        <header className="screen-title">
           <div>
             <Skeleton w={110} h={11} />
             <div style={{ marginTop: 10 }}>
@@ -218,7 +218,7 @@ export default function RoomDetail() {
   return (
     <main className="screen standard-screen room-screen">
       <BackBar label="Cameras" onBack={() => navigate("/dashboard")} />
-      <header className="room-title">
+      <header className="screen-title">
         <div>
           <p className="eyebrow">{open ? "LIVE CAMERA" : "CLOSED CAMERA"}</p>
           <h1>{room.name}</h1>
@@ -259,15 +259,17 @@ export default function RoomDetail() {
               const full = kept >= SHOTS_PER_ROLL;
               return (
                 <div className="progress-row" key={m.id}>
-                  <div>
+                  <div className="progress-row__head">
                     <strong>{m.display_name}</strong>
-                    <code>
+                    <code className={full ? "is-full" : ""}>
                       {String(kept).padStart(2, "0")}/{SHOTS_PER_ROLL}
                     </code>
                   </div>
-                  <div className="progress-track">
-                    <i className={full ? "is-full" : ""} style={{ transform: `scaleX(${kept / SHOTS_PER_ROLL})` }} />
-                  </div>
+                  <ExposureLadder
+                    count={kept}
+                    total={SHOTS_PER_ROLL}
+                    label={`${m.display_name}: ${kept} of ${SHOTS_PER_ROLL} shots kept`}
+                  />
                 </div>
               );
             })}
@@ -302,7 +304,7 @@ export default function RoomDetail() {
                 {urls[p.id] ? (
                   <img src={urls[p.id]} alt={`Kept shot ${p.id}`} loading="lazy" />
                 ) : (
-                  <div style={{ width: "100%", height: "100%", background: "var(--hairline)" }} />
+                  <span className="polaroid__pending" />
                 )}
                 <figcaption>{stamp(p.created_at)}</figcaption>
               </figure>
@@ -343,7 +345,7 @@ export default function RoomDetail() {
         )}
       </div>
 
-      {error && <p style={{ color: "var(--destructive)", fontSize: 13, marginTop: 12 }}>{error}</p>}
+      {error && <p className="form-error">{error}</p>}
 
       {sheet === "close" && (
         <Sheet title="Close room" onDismiss={() => setSheet(null)}>
@@ -391,21 +393,14 @@ export default function RoomDetail() {
               guests always keep access.
             </p>
           </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              margin: "0 4px 20px",
-            }}
-          >
+          <div className="stepper">
             <button
               className="icon-button"
               aria-label="Fewer members"
               onClick={() => setMaxMembers((v) => Math.max(1, v - 1))}
               disabled={maxMembers <= 1 || savingMax}
             >
-              <span style={{ fontSize: 22, lineHeight: 1 }}>−</span>
+              <span className="stepper__sign">−</span>
             </button>
             <span className="counter">{maxMembers}</span>
             <button
@@ -414,7 +409,7 @@ export default function RoomDetail() {
               onClick={() => setMaxMembers((v) => Math.min(10, v + 1))}
               disabled={maxMembers >= 10 || savingMax}
             >
-              <span style={{ fontSize: 22, lineHeight: 1 }}>+</span>
+              <span className="stepper__sign">+</span>
             </button>
           </div>
           <Button onClick={onSaveMax} disabled={savingMax || maxMembers === room.max_members}>

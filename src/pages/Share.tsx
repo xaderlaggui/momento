@@ -38,7 +38,7 @@ export default function Share() {
     await copyLink();
   }
 
-  if (error) return <p style={{ padding: 24, color: "var(--destructive)" }}>{error}</p>;
+  if (error) return <p className="page-error">{error}</p>;
   if (!room) return <p className="label p-6">Loading…</p>;
 
   return (

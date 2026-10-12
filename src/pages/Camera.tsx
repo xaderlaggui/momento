@@ -13,7 +13,7 @@ import {
   submitPending,
 } from "@/lib/guest";
 import type { Member, Photo } from "@/lib/types";
-import { Button, Counter, Flick, Icon } from "@/components/ui";
+import { Button, Counter, ExposureLadder, Flick, Icon } from "@/components/ui";
 
 const MAX_EDGE = 2048;
 
@@ -320,7 +320,7 @@ export default function Camera() {
         <img className="viewfinder-image" src={previewUrl} alt="Photo preview" />
         <div className="preview-vignette" />
         <div className="preview-label">{busy ? "SAVING…" : "LOOKS GOOD"}</div>
-        {error && <p style={{ position: "absolute", top: "20%", left: 0, right: 0, textAlign: "center", color: "#ff715b", fontSize: 13 }}>{error}</p>}
+        {error && <p className="camera-note camera-note--top" role="alert">{error}</p>}
         <div className="preview-actions">
           <Button variant="secondary" onClick={onRetake} disabled={busy}>
             Retake
@@ -337,13 +337,11 @@ export default function Camera() {
   return (
     <main className="screen camera-screen">
       {camError ? (
-        <div style={{ position: "absolute", inset: 0, display: "grid", placeContent: "center", gap: 16, textAlign: "center", padding: 24 }}>
+        <div className="camera-error">
           <Flick pose="deflated" size="medium" />
-          <p style={{ fontSize: 18, fontWeight: 700 }}>Camera blocked</p>
-          <p style={{ color: "rgba(255,255,255,.7)" }}>
-            Allow camera access in your browser settings, then reopen this page.
-          </p>
-          <label className="button button--primary" style={{ margin: "0 auto" }}>
+          <strong>Camera blocked</strong>
+          <p>Allow camera access in your browser settings, then reopen this page.</p>
+          <label className="button button--primary">
             <Icon name="flash" />
             <span>Pick from camera roll</span>
             <input
@@ -455,6 +453,13 @@ export default function Camera() {
 
       {!camError && (
         <div className="camera-controls">
+          <div className="camera-roll">
+            <ExposureLadder
+              count={kept}
+              total={SHOTS_PER_ROLL}
+              label={`${kept} of ${SHOTS_PER_ROLL} shots kept`}
+            />
+          </div>
           <FilmStrip photos={strip} urls={stripUrls} keptTotal={kept} />
           <button className="shutter" onClick={onShutter} disabled={busy || full} aria-label="Take photo">
             <span />
@@ -463,11 +468,7 @@ export default function Camera() {
         </div>
       )}
 
-      {error && (
-        <p style={{ position: "absolute", bottom: 160, left: 20, right: 20, textAlign: "center", color: "#ff715b", fontSize: 13 }}>
-          {error}
-        </p>
-      )}
+      {error && <p className="camera-note" role="alert">{error}</p>}
       {flash && <div className="shutter-flash" />}
       {showFlick && (
         <div className="hype-pop">

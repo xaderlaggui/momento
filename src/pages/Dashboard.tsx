@@ -61,7 +61,7 @@ export default function Dashboard() {
 
   return (
     <main className="screen standard-screen">
-      <header className="large-header">
+      <header className="screen-title">
         <div>
           <p className="eyebrow">MOMENTO HOST</p>
           <h1>Your cameras</h1>
@@ -142,14 +142,14 @@ export default function Dashboard() {
           <TextField label="Event date (optional)" type="date" value={date} onChange={setDate} placeholder="" />
           <div className="field">
             <span>Max members</span>
-            <div className="member-stepper">
+            <div className="stepper">
               <button
                 className="icon-button"
                 aria-label="Fewer members"
                 onClick={() => setMaxMembers((v) => Math.max(1, v - 1))}
                 disabled={maxMembers <= 1}
               >
-                <span className="member-stepper__sign">−</span>
+                <span className="stepper__sign">−</span>
               </button>
               <span className="counter">{maxMembers}</span>
               <button
@@ -158,11 +158,11 @@ export default function Dashboard() {
                 onClick={() => setMaxMembers((v) => Math.min(10, v + 1))}
                 disabled={maxMembers >= 10}
               >
-                <span className="member-stepper__sign">+</span>
+                <span className="stepper__sign">+</span>
               </button>
             </div>
           </div>
-          {error && <p style={{ color: "var(--destructive)", fontSize: 13 }}>{error}</p>}
+          {error && <p className="form-error">{error}</p>}
           <Button onClick={onCreate} disabled={busy || !name.trim()}>
             {busy ? "Creating…" : "Create room"}
           </Button>

@@ -172,7 +172,7 @@ export default function HostSignIn({ onExit }: { onExit?: () => void }) {
       ) : null}
 
       {(error || notice) && (
-        <p style={{ color: error ? "var(--destructive)" : "var(--ink)", fontSize: 13 }} role={error ? "alert" : undefined}>
+        <p className={error ? "form-error" : "label"} role={error ? "alert" : undefined}>
           {error ?? notice}
         </p>
       )}

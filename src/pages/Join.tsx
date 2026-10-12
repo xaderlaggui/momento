@@ -55,7 +55,7 @@ export default function Join() {
           value={name}
           onChange={setName}
         />
-        {error && <p style={{ color: "#ff715b", fontSize: 13, marginBottom: 12 }}>{error}</p>}
+        {error && <p className="join-error" role="alert">{error}</p>}
         <Button onClick={onJoin} disabled={busy || !name.trim()}>
           {busy ? "Joining…" : "Join & open camera"}
         </Button>

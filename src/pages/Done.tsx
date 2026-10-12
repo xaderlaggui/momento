@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { loadGuestSession, resumeMember, countKept } from "@/lib/guest";
 import { SHOTS_PER_ROLL } from "@/lib/supabase";
-import { Button, Flick } from "@/components/ui";
+import { Button, ExposureLadder, Flick } from "@/components/ui";
 
 export default function Done() {
   const { code = "" } = useParams();
@@ -33,6 +33,16 @@ export default function Done() {
           ? `You kept ${kept} shots. Every keep is safe with the host.`
           : "Your keeps are safe with the host."}
       </p>
+      <div className="done-ladder">
+        <ExposureLadder
+          count={SHOTS_PER_ROLL}
+          total={SHOTS_PER_ROLL}
+          size="lg"
+          tone="celebrate"
+          label={`All ${SHOTS_PER_ROLL} shots used`}
+        />
+        <span className="done-ladder__count">{SHOTS_PER_ROLL}/{SHOTS_PER_ROLL} SHOTS · ROLL COMPLETE</span>
+      </div>
       <Flick pose="cheese" size="large" />
       <div className="lower-actions">
         <Button variant="secondary" onClick={() => navigate("/")}>

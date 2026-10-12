@@ -48,9 +48,9 @@ export default function Account({
   }
 
   return (
-    <main className="screen standard-screen account-screen">
+    <main className="screen standard-screen">
       <BackBar label="Cameras" onBack={() => navigate("/dashboard")} />
-      <header className="room-title">
+      <header className="screen-title">
         <div>
           <p className="eyebrow">MOMENTO HOST</p>
           <h1>Account</h1>
@@ -85,7 +85,7 @@ export default function Account({
         </Button>
       </div>
 
-      {error && <p style={{ color: "var(--destructive)", fontSize: 13, marginTop: 12 }}>{error}</p>}
+      {error && <p className="form-error">{error}</p>}
 
       {confirmDelete && (
         <Sheet title="Delete account" onDismiss={() => setConfirmDelete(false)}>
@@ -101,8 +101,7 @@ export default function Account({
             </p>
           </div>
           <input
-            className="code-input"
-            style={{ height: 56, fontSize: 20, letterSpacing: ".2em" }}
+            className="code-input code-input--sm"
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value.toUpperCase())}
             placeholder="DELETE"

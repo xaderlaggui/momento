@@ -37,7 +37,7 @@ export default function ResetPassword() {
       ) : (
         <>
           <p>Pick something at least 6 characters long.</p>
-          <div style={{ width: "100%", marginTop: 8 }}>
+          <div className="done-form">
             <TextField
               label="New password"
               placeholder="At least 6 characters"
@@ -47,7 +47,7 @@ export default function ResetPassword() {
               onChange={setPassword}
             />
             {error && (
-              <p style={{ color: "var(--destructive)", fontSize: 13 }} role="alert">
+              <p className="form-error" role="alert">
                 {error}
               </p>
             )}
