@@ -1,3 +1,5 @@
+import "./wireframe-board.css";
+
 type WireType = "form" | "list" | "sheet" | "qr" | "grid" | "camera" | "preview" | "done" | "empty";
 
 const wireScreens: Array<{
