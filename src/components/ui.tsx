@@ -5,12 +5,17 @@ import { inviteLink } from "@/lib/api";
 
 export type IconName =
   | "back"
+  | "camera"
+  | "check"
   | "chevron"
   | "copy"
   | "download"
   | "flash"
   | "flip"
+  | "grid"
   | "moon"
+  | "plus"
+  | "settings"
   | "share"
   | "sun"
   | "user";
@@ -18,7 +23,29 @@ export type IconName =
 export function Icon({ name }: { name: IconName }) {
   const paths: Record<IconName, ReactNode> = {
     back: <path d="m15 18-6-6 6-6" />,
+    camera: (
+      <>
+        <path d="M4 8.5h3l1.8-2h6.4l1.8 2H20a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5a1 1 0 0 1 1-1Z" />
+        <circle cx="12" cy="13" r="3.5" />
+      </>
+    ),
+    check: <path d="m5 13 4 4L19 7" />,
     chevron: <path d="m9 18 6-6-6-6" />,
+    grid: (
+      <>
+        <rect x="4" y="4" width="7" height="7" rx="1.6" />
+        <rect x="13" y="4" width="7" height="7" rx="1.6" />
+        <rect x="4" y="13" width="7" height="7" rx="1.6" />
+        <rect x="13" y="13" width="7" height="7" rx="1.6" />
+      </>
+    ),
+    plus: <path d="M12 5v14M5 12h14" />,
+    settings: (
+      <>
+        <circle cx="12" cy="12" r="3.2" />
+        <path d="M12 3.5v2.2m0 12.6v2.2M3.5 12h2.2m12.6 0h2.2M5.9 5.9l1.6 1.6m8.9 8.9 1.6 1.6M18.1 5.9l-1.6 1.6M7.5 16.5l-1.6 1.6" />
+      </>
+    ),
     copy: (
       <>
         <rect x="9" y="9" width="10" height="10" rx="2" />
