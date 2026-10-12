@@ -352,6 +352,40 @@ export function Counter({ count }: { count: number }) {
   );
 }
 
+/**
+ * The roll, made visible: one key per shot. The signature device, drawn at
+ * three scales — the shutter, a host guest row, and the roll-finished screen.
+ * The count is also exposed to assistive tech, since the keys are decorative.
+ */
+export function ExposureLadder({
+  count,
+  total = 20,
+  size = "md",
+  tone = "roll",
+  label,
+}: {
+  count: number;
+  total?: number;
+  size?: "md" | "lg";
+  /** "roll" warns red when full; "celebrate" keeps the amber at full. */
+  tone?: "roll" | "celebrate";
+  label?: string;
+}) {
+  const shown = Math.max(0, Math.min(count, total));
+  const full = shown >= total;
+  return (
+    <span
+      className={`ladder${size === "lg" ? " ladder--lg" : ""}`}
+      role="img"
+      aria-label={label ?? `${shown} of ${total} shots kept`}
+    >
+      {Array.from({ length: total }, (_, i) => (
+        <i key={i} className={i < shown ? (full && tone === "roll" ? "is-on is-full" : "is-on") : undefined} />
+      ))}
+    </span>
+  );
+}
+
 export function BackBar({
   label,
   onBack,
@@ -387,7 +421,34 @@ export function Sheet({
   // Mount-only: re-running this steals focus from whatever the user is
   // typing into, so parents can pass a fresh onDismiss each render.
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && dismissRef.current();
+    const focusable = () =>
+      Array.from(
+        ref.current?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        ) ?? []
+      );
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        dismissRef.current();
+        return;
+      }
+      // A modal owns the tab order: cycle within the sheet, never behind it.
+      if (e.key !== "Tab") return;
+      const nodes = focusable();
+      if (nodes.length === 0) return;
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && (active === first || active === ref.current)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
     window.addEventListener("keydown", onKey);
     ref.current?.focus();
     return () => window.removeEventListener("keydown", onKey);
@@ -433,7 +494,7 @@ export function QRCodeImage({ code, name }: { code: string; name: string }) {
       {dataUrl ? (
         <img className="qr" src={dataUrl} alt={`QR code for room ${name}`} />
       ) : (
-        <div className="qr" style={{ margin: "18px auto", minHeight: 200 }} />
+        <div className="qr" />
       )}
       <code className="room-code">{code}</code>
       <p>{inviteLink(code)}</p>
