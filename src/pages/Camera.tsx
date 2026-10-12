@@ -365,7 +365,11 @@ export default function Camera() {
             videoRef.current = el;
             // The preview screen unmounts this element; on Retake/Keep it
             // remounts with no srcObject, so reattach the still-live stream.
-            if (el && streamRef.current) el.srcObject = streamRef.current;
+            // Only when it actually changed: assigning srcObject resets the
+            // element's load state, and this callback runs on every render.
+            if (el && streamRef.current && el.srcObject !== streamRef.current) {
+              el.srcObject = streamRef.current;
+            }
           }}
           className="viewfinder-image"
           autoPlay

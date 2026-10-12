@@ -28,14 +28,37 @@ test("camera viewfinder and shot preview for review", async ({ page }, testInfo)
 
   await open(page, `/r/${CODE}/camera`);
   const shutter = page.locator(".shutter");
-  await expect(shutter).toBeVisible();
+  await expect(shutter).toBeVisible({ timeout: 20_000 });
 
-  // Let the fake device deliver real frames before judging the viewfinder.
-  await page.waitForTimeout(600);
+  // The shutter is enabled before the first frame lands, so wait for real
+  // pixels — otherwise the tap reads as "Camera not ready".
+  await expect
+    .poll(
+      () =>
+        page
+          .locator("video.viewfinder-image")
+          .evaluate((v) => (v as HTMLVideoElement).videoWidth),
+      { timeout: 20_000 }
+    )
+    .toBeGreaterThan(0);
+
   await page.screenshot({ path: `${OUT}/camera-390.png` });
 
   await shutter.click();
-  await expect(page.getByRole("button", { name: "Keep photo" })).toBeVisible();
-  await page.waitForTimeout(300);
+  await expect(page.getByRole("button", { name: "Keep photo" })).toBeVisible({ timeout: 15_000 });
   await page.screenshot({ path: `${OUT}/camera-preview-390.png` });
+});
+
+test("camera blocked state for review", async ({ page }, testInfo) => {
+  if (testInfo.project.name === "desktop") test.skip();
+
+  // Deterministic denial: the fake device cannot reproduce a refused lens.
+  await page.addInitScript(() => {
+    navigator.mediaDevices.getUserMedia = () =>
+      Promise.reject(new DOMException("Permission denied", "NotAllowedError"));
+  });
+
+  await open(page, `/r/${CODE}/camera`);
+  await expect(page.locator(".camera-error")).toBeVisible();
+  await page.screenshot({ path: `${OUT}/camera-blocked-390.png` });
 });
