@@ -64,6 +64,37 @@ export default function Camera() {
   const [ready, setReady] = useState(false);
   const [facing, setFacing] = useState<"user" | "environment">("user");
   const [firstShot, setFirstShot] = useState(true);
+  const [gridOn, setGridOn] = useState(false);
+  const [timer, setTimer] = useState(0);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [torchOn, setTorchOn] = useState(false);
+  const [torchAvailable, setTorchAvailable] = useState(false);
+  const countdownRef = useRef<number | null>(null);
+
+  // Restore grid/timer choices; they persist across visits.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("momento.camera.prefs");
+      if (raw) {
+        const p = JSON.parse(raw) as { grid?: boolean; timer?: number };
+        if (typeof p.grid === "boolean") setGridOn(p.grid);
+        if (typeof p.timer === "number") setTimer(p.timer);
+      }
+    } catch {
+      /* corrupt prefs → defaults */
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("momento.camera.prefs", JSON.stringify({ grid: gridOn, timer }));
+  }, [gridOn, timer]);
+
+  useEffect(
+    () => () => {
+      if (countdownRef.current) window.clearInterval(countdownRef.current);
+    },
+    []
+  );
 
   // Init: verify session, load room id, kept count, and any orphan pending shot.
   useEffect(() => {
@@ -117,6 +148,10 @@ export default function Camera() {
         streamRef.current?.getTracks().forEach((t) => t.stop());
         streamRef.current = stream;
         if (videoRef.current) videoRef.current.srcObject = stream;
+        const track = stream.getVideoTracks()[0];
+        const caps = track?.getCapabilities?.() as (MediaTrackCapabilities & { torch?: boolean }) | undefined;
+        setTorchAvailable(!!caps?.torch);
+        setTorchOn(false);
       } catch {
         if (live) setCamError(true);
       }
@@ -176,8 +211,7 @@ export default function Camera() {
     uploadedUrlRef.current = null;
   }
 
-  async function onShutter() {
-    if (busy || previewUrl) return;
+  async function captureNow() {
     setError(null);
     haptic(12);
     try {
@@ -186,6 +220,42 @@ export default function Camera() {
       setFirstShot(false);
     } catch (e) {
       setError(describe(e));
+    }
+  }
+
+  function startCountdown(seconds: number) {
+    setCountdown(seconds);
+    haptic(8);
+    let remaining = seconds;
+    countdownRef.current = window.setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        if (countdownRef.current) window.clearInterval(countdownRef.current);
+        countdownRef.current = null;
+        setCountdown(null);
+        void captureNow();
+      } else {
+        setCountdown(remaining);
+        haptic(8);
+      }
+    }, 1000);
+  }
+
+  function onShutter() {
+    if (busy || previewUrl || countdown !== null) return;
+    if (timer > 0) startCountdown(timer);
+    else void captureNow();
+  }
+
+  async function toggleTorch() {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+    const next = !torchOn;
+    try {
+      await track.applyConstraints({ advanced: [{ torch: next }] } as unknown as MediaTrackConstraints);
+      setTorchOn(next);
+    } catch {
+      setTorchAvailable(false);
     }
   }
 
@@ -310,6 +380,33 @@ export default function Camera() {
         <Counter count={kept} />
       </div>
 
+      {!camError && !previewUrl && (
+        <div className="camera-tools">
+          {torchAvailable && (
+            <button
+              className={`camera-tool${torchOn ? " is-on" : ""}`}
+              aria-pressed={torchOn}
+              onClick={toggleTorch}
+            >
+              Flash
+            </button>
+          )}
+          <button
+            className={`camera-tool${timer > 0 ? " is-on" : ""}`}
+            onClick={() => setTimer((t) => (t === 0 ? 3 : t === 3 ? 10 : 0))}
+          >
+            {timer > 0 ? `Timer ${timer}s` : "Timer off"}
+          </button>
+          <button
+            className={`camera-tool${gridOn ? " is-on" : ""}`}
+            aria-pressed={gridOn}
+            onClick={() => setGridOn((v) => !v)}
+          >
+            Grid
+          </button>
+        </div>
+      )}
+
       {!camError && (
         <button
           className="camera-flip"
@@ -334,6 +431,21 @@ export default function Camera() {
           <div className="bracket bracket--bl" />
           <div className="bracket bracket--br" />
         </>
+      )}
+
+      {gridOn && !camError && !previewUrl && (
+        <div className="grid-overlay" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+          <i />
+        </div>
+      )}
+
+      {countdown !== null && (
+        <div className="countdown" aria-live="assertive">
+          {countdown}
+        </div>
       )}
 
       {!camError && (
