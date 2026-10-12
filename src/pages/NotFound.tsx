@@ -12,7 +12,7 @@ export default function NotFound() {
       <p>That link may be mistyped. Ask the host for a fresh one.</p>
       <div className="lower-actions">
         <Button onClick={() => navigate("/")}>Enter a code</Button>
-        <Button variant="secondary" onClick={() => navigate("/")}>
+        <Button variant="secondary" onClick={() => navigate("/auth")}>
           Host sign-in
         </Button>
       </div>

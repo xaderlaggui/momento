@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { createRoom, listRooms } from "@/lib/api";
 import type { Room } from "@/lib/types";
+import { NEW_ROOM_EVENT } from "@/components/BottomNav";
 import { Button, EmptyState, Flick, Icon, Sheet, Skeleton, TextField } from "@/components/ui";
 
 async function keptCount(roomId: string): Promise<number> {
@@ -36,6 +37,13 @@ export default function Dashboard() {
     refresh();
   }, []);
 
+  // The bottom-nav "New" tab opens the create sheet from anywhere on the tab.
+  useEffect(() => {
+    const open = () => setSheetOpen(true);
+    window.addEventListener(NEW_ROOM_EVENT, open);
+    return () => window.removeEventListener(NEW_ROOM_EVENT, open);
+  }, []);
+
   async function onCreate() {
     if (!name.trim()) return;
     setBusy(true);
@@ -43,17 +51,12 @@ export default function Dashboard() {
     try {
       const room = await createRoom(name.trim(), date || null, maxMembers);
       setSheetOpen(false);
-      navigate(`/room/${room.id}/share`);
+      navigate(`/room/${room.code}/share`);
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setBusy(false);
     }
-  }
-
-  async function onSignOut() {
-    await supabase.auth.signOut();
-    navigate("/", { replace: true });
   }
 
   return (
@@ -63,7 +66,7 @@ export default function Dashboard() {
           <p className="eyebrow">MOMENTO HOST</p>
           <h1>Your cameras</h1>
         </div>
-        <button className="icon-button" onClick={onSignOut} aria-label="Account — sign out">
+        <button className="icon-button" onClick={() => navigate("/account")} aria-label="Account">
           <Icon name="user" />
         </button>
       </header>
@@ -103,7 +106,7 @@ export default function Dashboard() {
         ) : (
           <div className="inset-list">
             {rooms.map((room) => (
-              <button className="room-row" key={room.id} onClick={() => navigate(`/room/${room.id}`)}>
+              <button className="room-row" key={room.id} onClick={() => navigate(`/room/${room.code}`)}>
                 <span className="room-row__icon">
                   <Icon name="flash" />
                 </span>

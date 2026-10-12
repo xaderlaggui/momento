@@ -1,17 +1,21 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase, SHOTS_PER_ROLL } from "@/lib/supabase";
 import {
   closeRoom,
   downloadRoomZip,
-  getRoom,
+  getRoomByCode,
   listMembers,
   listRoomPhotos,
+  renameRoom,
+  rotateRoomCode,
   setRoomMax,
   signedUrl,
 } from "@/lib/api";
 import type { Member, Photo, Room } from "@/lib/types";
-import { BackBar, Button, EmptyState, Flick, Icon, Sheet, Skeleton } from "@/components/ui";
+import { BackBar, Button, EmptyState, Flick, Icon, Sheet, Skeleton, TextField } from "@/components/ui";
+import Lightbox from "@/components/Lightbox";
+import Toast from "@/components/Toast";
 
 function stamp(iso: string): string {
   const d = new Date(iso);
@@ -20,7 +24,7 @@ function stamp(iso: string): string {
 }
 
 export default function RoomDetail() {
-  const { id = "" } = useParams();
+  const { code = "" } = useParams();
   const navigate = useNavigate();
   const [room, setRoom] = useState<Room | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
@@ -28,18 +32,28 @@ export default function RoomDetail() {
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
-  const [sheet, setSheet] = useState<"close" | "download" | "settings" | null>(null);
+  const [sheet, setSheet] = useState<"close" | "download" | "settings" | "edit" | "revoke" | null>(null);
   const [maxMembers, setMaxMembers] = useState(10);
   const [savingMax, setSavingMax] = useState(false);
   const [zipPct, setZipPct] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [rotating, setRotating] = useState(false);
+  const [lightbox, setLightbox] = useState<number | null>(null);
+  const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
+
+  const membersRef = useRef<Member[]>([]);
+  membersRef.current = members;
 
   const refresh = useCallback(async () => {
-    const [r, m, p] = await Promise.all([getRoom(id), listMembers(id), listRoomPhotos(id)]);
+    const r = await getRoomByCode(code);
+    const [m, p] = await Promise.all([listMembers(r.id), listRoomPhotos(r.id)]);
     setRoom(r);
     setMaxMembers(r.max_members ?? 10);
     setMembers(m);
     setPhotos(p);
-  }, [id]);
+  }, [code]);
 
   useEffect(() => {
     refresh().catch((e) => setError((e as Error).message));
@@ -57,19 +71,27 @@ export default function RoomDetail() {
   }, [photos]);
 
   useEffect(() => {
-    if (!id) return;
+    const roomId = room?.id;
+    if (!roomId) return;
     const channel = supabase
-      .channel(`room-${id}`)
+      .channel(`room-${roomId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "photos", filter: `room_id=eq.${id}` },
-        () => refresh()
+        { event: "*", schema: "public", table: "photos", filter: `room_id=eq.${roomId}` },
+        (payload) => {
+          const next = payload.new as Partial<Photo> | undefined;
+          if (payload.eventType === "UPDATE" && next?.status === "kept" && next.member_id) {
+            const name = membersRef.current.find((m) => m.id === next.member_id)?.display_name;
+            setToast({ id: Date.now(), text: `${name ?? "A guest"} kept a shot` });
+          }
+          refresh();
+        }
       )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [id, refresh]);
+  }, [room?.id, refresh]);
 
   const keptCounts = photos.reduce<Record<string, number>>((acc, p) => {
     acc[p.member_id] = (acc[p.member_id] ?? 0) + 1;
@@ -80,9 +102,10 @@ export default function RoomDetail() {
     members.length > 0 && members.every((m) => (keptCounts[m.id] ?? 0) >= SHOTS_PER_ROLL);
 
   async function onClose() {
+    if (!room) return;
     setClosing(true);
     try {
-      await closeRoom(id);
+      await closeRoom(room.id);
       setSheet(null);
       await refresh();
     } catch (e) {
@@ -118,6 +141,43 @@ export default function RoomDetail() {
       setError((e as Error).message);
     } finally {
       setZipPct(null);
+    }
+  }
+
+  function openEdit() {
+    if (!room) return;
+    setEditName(room.name);
+    setEditDate(room.event_date ?? "");
+    setSheet("edit");
+  }
+
+  async function onSaveEdit() {
+    if (!room) return;
+    setSavingEdit(true);
+    setError(null);
+    try {
+      await renameRoom(room.id, editName.trim(), editDate || null);
+      setSheet(null);
+      await refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  async function onRotate() {
+    if (!room) return;
+    setRotating(true);
+    setError(null);
+    try {
+      await rotateRoomCode(room.id);
+      setSheet(null);
+      await refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setRotating(false);
     }
   }
 
@@ -224,8 +284,21 @@ export default function RoomDetail() {
           <EmptyState flick="peek" title="No keeps yet" hint="Kept shots land here the second a guest taps Keep." />
         ) : (
           <div className="photo-grid">
-            {photos.map((p) => (
-              <figure className="polaroid" key={p.id}>
+            {photos.map((p, i) => (
+              <figure
+                className="polaroid"
+                key={p.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`View keep ${i + 1}`}
+                onClick={() => urls[p.id] && setLightbox(i)}
+                onKeyDown={(e) => {
+                  if ((e.key === "Enter" || e.key === " ") && urls[p.id]) {
+                    e.preventDefault();
+                    setLightbox(i);
+                  }
+                }}
+              >
                 {urls[p.id] ? (
                   <img src={urls[p.id]} alt={`Kept shot ${p.id}`} loading="lazy" />
                 ) : (
@@ -240,7 +313,7 @@ export default function RoomDetail() {
 
       <div className="room-actions">
         {open && (
-          <Button variant="secondary" icon="share" onClick={() => navigate(`/room/${room.id}/share`)}>
+          <Button variant="secondary" icon="share" onClick={() => navigate(`/room/${room.code}/share`)}>
             Share QR
           </Button>
         )}
@@ -252,7 +325,7 @@ export default function RoomDetail() {
             Close room
           </Button>
         ) : (
-          <Button variant="ghost" onClick={() => navigate(`/room/${room.id}/share`)}>
+          <Button variant="ghost" onClick={() => navigate(`/room/${room.code}/share`)}>
             <Icon name="copy" />
             <span>Share again</span>
           </Button>
@@ -260,6 +333,14 @@ export default function RoomDetail() {
         <Button variant="ghost" onClick={() => setSheet("settings")}>
           <span>Member limit · {room.max_members}</span>
         </Button>
+        <Button variant="ghost" onClick={openEdit}>
+          <span>Edit room</span>
+        </Button>
+        {open && (
+          <Button variant="ghost" onClick={() => setSheet("revoke")}>
+            <span>Revoke invite</span>
+          </Button>
+        )}
       </div>
 
       {error && <p style={{ color: "var(--destructive)", fontSize: 13, marginTop: 12 }}>{error}</p>}
@@ -344,6 +425,61 @@ export default function RoomDetail() {
           </Button>
         </Sheet>
       )}
+
+      {sheet === "edit" && (
+        <Sheet title="Edit room" onDismiss={() => setSheet(null)}>
+          <div className="sheet__heading">
+            <p className="eyebrow">ROOM DETAILS</p>
+            <h2>Edit room</h2>
+            <p>Rename the room or fix the event date. Guests see the new name right away.</p>
+          </div>
+          <TextField label="Room name" placeholder="Maya & Theo" value={editName} onChange={setEditName} />
+          <TextField label="Event date (optional)" type="date" value={editDate} onChange={setEditDate} placeholder="" />
+          <Button onClick={onSaveEdit} disabled={savingEdit || !editName.trim()}>
+            {savingEdit ? "Saving…" : "Save changes"}
+          </Button>
+          <Button variant="ghost" onClick={() => setSheet(null)}>
+            Cancel
+          </Button>
+        </Sheet>
+      )}
+
+      {sheet === "revoke" && (
+        <Sheet title="Revoke invite" onDismiss={() => setSheet(null)}>
+          <div className="sheet__mascot">
+            <Flick pose="waiting" size="small" />
+          </div>
+          <div className="sheet__heading">
+            <p className="eyebrow">FRESH INVITE</p>
+            <h2>Revoke this invite?</h2>
+            <p>
+              The current code <code>{room.code}</code> stops working and a new one is issued.
+              Everyone already in the room keeps shooting.
+            </p>
+          </div>
+          <Button variant="destructive" onClick={onRotate} disabled={rotating}>
+            {rotating ? "Rotating…" : "Issue a new code"}
+          </Button>
+          <Button variant="ghost" onClick={() => setSheet(null)}>
+            Keep the current code
+          </Button>
+        </Sheet>
+      )}
+
+      {lightbox !== null && (
+        <Lightbox
+          items={photos.map((p, i) => ({
+            url: urls[p.id] ?? "",
+            caption: `${room.name} · ${stamp(p.created_at)}`,
+            filename: `${room.code}-${String(i + 1).padStart(3, "0")}.jpg`,
+          }))}
+          index={lightbox}
+          onClose={() => setLightbox(null)}
+          onIndex={setLightbox}
+        />
+      )}
+
+      {toast && <Toast key={toast.id} message={toast.text} onDismiss={() => setToast(null)} />}
     </main>
   );
 }

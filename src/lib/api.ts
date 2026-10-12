@@ -44,6 +44,19 @@ export async function getRoom(id: string): Promise<Room> {
   return data as Room;
 }
 
+/** Resolve a room code to its internal id via the anon-granted RPC. */
+export async function roomIdForCode(code: string): Promise<string> {
+  const { data, error } = await supabase.rpc("room_id_for_code", { p_code: code.toUpperCase() });
+  if (error || !data) throw new Error("This camera does not exist.");
+  return data as string;
+}
+
+/** Host routes address rooms by code, so the internal uuid stays out of the URL. */
+export async function getRoomByCode(code: string): Promise<Room> {
+  const id = await roomIdForCode(code);
+  return getRoom(id);
+}
+
 export async function closeRoom(id: string): Promise<void> {
   const { error } = await supabase.rpc("close_room", { p_room_id: id });
   if (error) throw error;
@@ -52,6 +65,22 @@ export async function closeRoom(id: string): Promise<void> {
 export async function setRoomMax(id: string, max: number): Promise<void> {
   const { error } = await supabase.rpc("set_room_max", { p_room_id: id, p_max: max });
   if (error) throw error;
+}
+
+export async function renameRoom(id: string, name: string, eventDate: string | null): Promise<void> {
+  const { error } = await supabase.rpc("rename_room", {
+    p_room_id: id,
+    p_name: name,
+    p_event_date: eventDate,
+  });
+  if (error) throw error;
+}
+
+/** Revoke the current invite by rotating the room code. Returns the new code. */
+export async function rotateRoomCode(id: string): Promise<string> {
+  const { data, error } = await supabase.rpc("rotate_room_code", { p_room_id: id });
+  if (error) throw error;
+  return data as string;
 }
 
 export async function listMembers(roomId: string): Promise<Member[]> {

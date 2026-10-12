@@ -1,21 +1,21 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getRoom } from "@/lib/api";
+import { getRoomByCode } from "@/lib/api";
 import type { Room } from "@/lib/types";
 import { BackBar, Button, QRCodeImage } from "@/components/ui";
 
 export default function Share() {
-  const { id = "" } = useParams();
+  const { code = "" } = useParams();
   const navigate = useNavigate();
   const [room, setRoom] = useState<Room | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    getRoom(id)
+    getRoomByCode(code)
       .then(setRoom)
       .catch((e) => setError((e as Error).message));
-  }, [id]);
+  }, [code]);
 
   async function copyLink() {
     if (!room) return;
@@ -57,7 +57,7 @@ export default function Share() {
         <Button variant="secondary" icon="copy" onClick={copyLink}>
           {copied ? "Link copied" : "Copy link"}
         </Button>
-        <Button variant="ghost" onClick={() => navigate(`/room/${room.id}`)}>
+        <Button variant="ghost" onClick={() => navigate(`/room/${room.code}`)}>
           Done sharing
         </Button>
       </div>

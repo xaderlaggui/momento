@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Icon } from "@/components/ui";
+import BottomNav, { bottomNavVariant } from "@/components/BottomNav";
+import Splash from "@/components/Splash";
 import Dashboard from "@/pages/Dashboard";
 import Share from "@/pages/Share";
 import RoomDetail from "@/pages/RoomDetail";
@@ -10,6 +12,10 @@ import Join from "@/pages/Join";
 import Camera from "@/pages/Camera";
 import Done from "@/pages/Done";
 import Landing from "@/pages/Landing";
+import Auth from "@/pages/Auth";
+import AuthCallback from "@/pages/AuthCallback";
+import ResetPassword from "@/pages/ResetPassword";
+import Account from "@/pages/Account";
 import NotFound from "@/pages/NotFound";
 
 function prefersDark(): boolean {
@@ -51,9 +57,10 @@ export default function App() {
   const location = useLocation();
   const [dark, setDark] = useState(prefersDark);
   const onCamera = /^\/r\/[^/]+\/camera$/.test(location.pathname);
+  const nav = bottomNavVariant(location.pathname);
 
   return (
-    <div className={dark ? "app theme-dark" : "app"}>
+    <div className={`app${dark ? " theme-dark" : ""}${nav ? " has-nav" : ""}`}>
       <div className="device-shell">
         <Routes>
           <Route path="/" element={<Landing />} />
@@ -68,8 +75,11 @@ export default function App() {
               </RequireOwner>
             }
           />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/auth/reset" element={<ResetPassword />} />
           <Route
-            path="/room/:id/share"
+            path="/room/:code/share"
             element={
               <RequireOwner>
                 <Share />
@@ -77,10 +87,18 @@ export default function App() {
             }
           />
           <Route
-            path="/room/:id"
+            path="/room/:code"
             element={
               <RequireOwner>
                 <RoomDetail />
+              </RequireOwner>
+            }
+          />
+          <Route
+            path="/account"
+            element={
+              <RequireOwner>
+                <Account dark={dark} onToggleDark={() => setDark(!dark)} />
               </RequireOwner>
             }
           />
@@ -89,6 +107,8 @@ export default function App() {
           <Route path="/r/:code/done" element={<Done />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <BottomNav />
+        <Splash />
       </div>
       {!onCamera && <Toggles dark={dark} onToggleDark={() => setDark(!dark)} />}
     </div>
